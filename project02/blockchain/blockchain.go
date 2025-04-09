@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"crypto/rand"
+	// "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -36,7 +36,7 @@ func DBexists() bool {
 	return true
 }
 
-func InitBlockChain() *BlockChain {
+func InitBlockChain(address string) *BlockChain {
 	var lastHash [] byte
 
 	if DBexists(){
@@ -105,7 +105,7 @@ func ContinueBlockChain(address string) *BlockChain {
 	return &chain
 }
 
-func (chain *BlockChain) AddBlock(data string) {
+func (chain *BlockChain) AddBlock(transaction []*Transaction) {
 	var lastHash []byte
 
 	err := chain.Database.View(func(txn *badger.Txn) error{
@@ -120,7 +120,7 @@ func (chain *BlockChain) AddBlock(data string) {
 	})
 	Handle(err)
 
-	newBlock := CreateBlock(data, lastHash)
+	newBlock := CreateBlock(transaction, lastHash)
 
 	err = chain.Database.Update(func(txn *badger.Txn) error{
 		err := txn.Set(newBlock.Hash, newBlock.Serialize())
@@ -186,6 +186,15 @@ func (chain *BlockChain) FindUnspentTransactions(address string) []Transaction {
 						unspentTxs = append(unspentTxs, *tx)
 					}
 				}
+
+				if tx.IsCoinbase() == false {
+					for _, in := range tx.Inputs {
+						if in.CanUnlock(address){
+							inTxID := hex.EncodeToString(in.ID)
+							spenTX0s[inTxID] = append(spenTX0s[inTxID], in.Out)
+						}
+					}
+				}
 		}
 
 		if len(block.PrevHash) == 0{
@@ -194,4 +203,41 @@ func (chain *BlockChain) FindUnspentTransactions(address string) []Transaction {
 	}
 
 	return unspentTxs
+}
+
+func (chain *BlockChain) FindUTXO(address string) []TxOutput {
+	var UTXOs []TxOutput
+	unspentTransactions := chain.FindUnspentTransactions(address)
+
+	for _, tx := range unspentTransactions {
+		for _, out := range tx.Outputs {
+			if out.CanBeUnlocked(address){
+				UTXOs = append(UTXOs, out)
+			}
+		}
+	}
+
+	return UTXOs
+}
+
+func (chain *BlockChain) FindSpendableOutputs(address string, amount int) (int, map[string][]int) {
+	unspentOuts := make(map[string][]int)
+	unspentTxs := chain.FindUnspentTransactions(address)
+	accumulated := 0
+
+	Work:
+	for _, tx := range unspentTxs {
+		txID := hex.EncodeToString(tx.ID)
+
+		for outIdx, out := range tx.Outputs {
+			accumulated += out.Value
+			unspentOuts[txID] = append(unspentOuts[txID], outIdx)
+
+			if accumulated>= amount {
+				break Work
+			}
+		}
+	}
+
+	return accumulated, unspentOuts
 }

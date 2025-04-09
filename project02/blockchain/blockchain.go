@@ -218,7 +218,7 @@ func (chain *BlockChain) FindUTXO(address string) []TxOutput {
 	}
 
 	return UTXOs
-}
+} 
 
 func (chain *BlockChain) FindSpendableOutputs(address string, amount int) (int, map[string][]int) {
 	unspentOuts := make(map[string][]int)

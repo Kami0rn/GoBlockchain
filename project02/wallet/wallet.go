@@ -20,6 +20,12 @@ type Wallet struct {
 	PublicKey []byte
 }
 
+func (w Wallet) Address() []byte {
+	pubHash := PublicKeyHash(w.PublicKey)
+
+	versionedHash := append([]byte{version}, pubHash...)
+}
+
 func NewKeyPair() (ecdsa.PrivateKey, []byte){
 	curve := elliptic.P256()
 

@@ -4,7 +4,8 @@ import (
 	"os"
 
 	// "github.com/Kami0rn/golang-blockchain/cli"
-	"github.com/Kami0rn/golang-blockchain/wallet"
+	"github.com/Kami0rn/golang-blockchain/cli"
+	// "github.com/Kami0rn/golang-blockchain/wallet"
 )
 
 // "google.golang.org/grpc/balancer"
@@ -13,9 +14,9 @@ import (
 
 func main() {
 	defer os.Exit(0)
-	// cli := cli.CommandLine{}
-	// cli.Run()
+	cli := cli.CommandLine{}
+	cli.Run()
 
-	w := wallet.MakeWallet()
-	w.Address()
+	// w := wallet.MakeWallet()
+	// w.Address()
 }

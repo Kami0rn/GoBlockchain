@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/Kami0rn/golang-blockchain/blockchain"
+	"github.com/Kami0rn/golang-blockchain/wallet"
 )
 
 type CommandLine struct {
@@ -20,6 +21,8 @@ func (cli *CommandLine) printUsage() {
 	fmt.Println(" createblockchain -address ADDRESS creates a blockchain and sends genesis reward to address")
 	fmt.Println(" printchain - Prints the blocks in the chain")
 	fmt.Println(" send -from FROM -to TO -amount AMOUNT - Send amount of coins")
+	fmt.Println(" createwallet -Create a new Wallet")
+	fmt.Println(" listaddress -List the addresses in our wallet file")
 
 	// fmt.Println(" add -block BLOCK_DATA - add a block to the chain")
 	// fmt.Println(" print - Print the blocks in the chain")
@@ -36,6 +39,23 @@ func (cli *CommandLine) validateArgs() {
 // 	cli.blockchain.AddBlock(data)
 // 	fmt.Println("Added block!")
 // }
+
+func (cli *CommandLine) listAddresses() {
+	wallets, _ := wallet.CreateWallets()
+	addresses := wallets.GetAllAddresses()
+
+	for _, address := range addresses {
+		fmt.Println(address)
+	}
+}
+
+func (cli *CommandLine) createWallet() {
+	wallets,_ := wallet.CreateWallets()
+	address := wallets.AddWallet()
+	wallets.SaveFile()
+
+	fmt.Printf("New address is: %s\n",address)
+}
 
 func (cli *CommandLine) printChain() {
 	chain := blockchain.ContinueBlockChain("")
@@ -94,6 +114,8 @@ func (cli *CommandLine) Run() {
 	createBlockchainCmd := flag.NewFlagSet("createblockchain", flag.ExitOnError)
 	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
 	printChainCmd := flag.NewFlagSet("printchain", flag.ExitOnError)
+	createWalletCmd := flag.NewFlagSet("createwallet", flag.ExitOnError)
+	listAddressesCmd := flag.NewFlagSet("listaddresses",flag.ExitOnError)
 
 	getBalanceAddress := getBalanceCmd.String("address", "", "The address to get balance for")
 	createBlockchainAddress := createBlockchainCmd.String("address", "", "The address to send genesis block reward to")
@@ -102,6 +124,17 @@ func (cli *CommandLine) Run() {
 	sendAmount := sendCmd.Int("amount", 0, "Amount to send")
 
 	switch os.Args[1] {
+	case "createwallet":
+		err := createWalletCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
+	case "listaddresses" :
+		err := listAddressesCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
+
 	case "getbalance":
 		err := getBalanceCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -147,6 +180,14 @@ func (cli *CommandLine) Run() {
 		cli.printChain()
 	}
 
+	if createWalletCmd.Parsed(){
+		cli.createWallet()
+	}
+
+	if listAddressesCmd.Parsed(){
+		cli.listAddresses()
+	}
+
 	if sendCmd.Parsed() {
 		if *sendFrom == "" || *sendTo == "" || *sendAmount <= 0 {
 			sendCmd.Usage()
@@ -155,4 +196,6 @@ func (cli *CommandLine) Run() {
 
 		cli.send(*sendFrom, *sendTo, *sendAmount)
 	}
+
+	
 }

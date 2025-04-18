@@ -15,6 +15,26 @@ type Transaction struct {
 	Outputs []TxOutput
 }
 
+func (tx Transaction) Serialize() []byte {
+	var encoded bytes.Buffer
+
+	enc := gob.NewEncoder(&encoded)
+	err := enc.Encode(tx)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return encoded.Bytes()
+}
+
+func (tx *Transaction) Hash() []byte {
+	var hash [32]byte
+	txCopy := *tx
+	txCopy.ID = []byte{}
+
+	hash = s                                 
+}
+
 
 func (tx *Transaction) SetID() {
 	var encoded bytes.Buffer

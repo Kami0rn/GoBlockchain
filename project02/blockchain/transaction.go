@@ -11,10 +11,13 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"runtime/trace"
 
-	"golang.org/x/text/unicode/rangetable"
-	"golang.org/x/tools/go/analysis/passes/nilfunc"
+	// "runtime/trace"
+	"strings"
+
+	"github.com/Kami0rn/golang-blockchain/wallet"
+	// "golang.org/x/text/unicode/rangetable"
+	// "golang.org/x/tools/go/analysis/passes/nilfunc"
 )
 
 type Transaction struct {
@@ -62,10 +65,10 @@ func CoinBaseTx(to, data string) *Transaction {
 		data = fmt.Sprintf("Coins to %s", to)
 	}
 
-	txin := TxInput{[]byte{}, -1, data}
-	txout := TxOutput{100, to}
+	txin := TxInput{[]byte{}, -1, nil, []byte(data)}
+	txout := NewTXOutput(100, to)
 
-	tx := Transaction{nil, []TxInput{txin}, []TxOutput{txout}}
+	tx := Transaction{nil, []TxInput{txin}, []TxOutput{*txout}}
 	tx.SetID()
 
 	return &tx
@@ -75,7 +78,12 @@ func NewTransaction(from, to string, amount int, chain *BlockChain) *Transaction
 	var inputs []TxInput
 	var outputs []TxOutput
 
-	acc, validOutputs := chain.FindSpendableOutputs(from, amount)
+	wallets, err := wallet.CreateWallets()
+	Handle(err)
+	w := wallets.GetWallet(from)
+	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
+
+	acc, validOutputs := chain.FindSpendableOutputs(pubKeyHash, amount)
 
 	if acc < amount {
 		log.Panic("Error: not enough funds")
@@ -86,19 +94,20 @@ func NewTransaction(from, to string, amount int, chain *BlockChain) *Transaction
 		Handle(err)
 
 		for _, out := range outs {
-			input := TxInput{txID, out, from}
+			input := TxInput{txID, out, nil, w.PublicKey}
 			inputs = append(inputs, input)
 		}
 	}
 
-	outputs = append(outputs, TxOutput{amount, to})
+	outputs = append(outputs, *NewTXOutput(amount, to))
 
 	if acc > amount {
-		outputs = append(outputs, TxOutput{acc - amount, from})
+		outputs = append(outputs, *NewTXOutput(acc-amount, from))
 	}
 
 	tx := Transaction{nil, inputs, outputs}
-	tx.SetID()
+	tx.ID = tx.Hash()
+	chain.SignTransaction(&tx, w.PrivateKey)
 
 	return &tx
 }
@@ -178,15 +187,18 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 		sigLen := len(in.Signature)
 		r.SetBytes(in.Signature[:(sigLen / 2)])
 		s.SetBytes(in.Signature[(sigLen / 2):])
-		
+
 		x := big.Int{}
 		y := big.Int{}
 		keyLen := len(in.PubKey)
-		
+
 		x.SetBytes(in.PubKey[:(keyLen / 2)])
 		y.SetBytes(in.PubKey[(keyLen / 2):])
 
-		rawPubKey := ecdsa.PrivateKey{curve, &x, &y}
+		// Construct the public key
+		rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
+
+		// Verify the signature
 		if ecdsa.Verify(&rawPubKey, txCopy.ID, &r, &s) == false {
 			return false
 		}
@@ -201,6 +213,18 @@ func (tx Transaction) String() string {
 
 	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.ID))
 	for i, input := range tx.Inputs {
-		
+		lines = append(lines, fmt.Sprintf("     Input %d:", i))
+		lines = append(lines, fmt.Sprintf("       TXID:     %x", input.ID))
+		lines = append(lines, fmt.Sprintf("       Out:       %d", input.Out))
+		lines = append(lines, fmt.Sprintf("       Signature: %x", input.Signature))
+		lines = append(lines, fmt.Sprintf("       PubKey:    %x", input.PubKey))
 	}
+
+	for i, output := range tx.Outputs {
+		lines = append(lines, fmt.Sprintf("     Output %d:", i))
+		lines = append(lines, fmt.Sprintf("       Value:  %d", output.Value))
+		lines = append(lines, fmt.Sprintf("       Script: %x", output.PubKeyHash))
+	}
+
+	return strings.Join(lines, "\n")
 }

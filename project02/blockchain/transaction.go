@@ -2,11 +2,17 @@ package blockchain
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"log"
+	"runtime/trace"
+
+	"golang.org/x/text/unicode/rangetable"
+	"golang.org/x/tools/go/analysis/passes/nilfunc"
 )
 
 type Transaction struct {
@@ -32,7 +38,9 @@ func (tx *Transaction) Hash() []byte {
 	txCopy := *tx
 	txCopy.ID = []byte{}
 
-	hash = s                                 
+	hash = sha256.Sum256(txCopy.Serialize())    
+	
+	return hash[:]
 }
 
 
@@ -99,3 +107,57 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }
 
+func (tx *Transaction) Sign(PrivKey ecdsa.PrivateKey, prevTXs map[string]Transaction){
+	if tx.IsCoinbase(){
+		return
+	}
+
+	for _, in := range tx.Inputs {
+		if prevTXs[hex.EncodeToString(in.ID)].ID == nil {
+			log.Panic("ERROR: Previous transaction does not exist.")
+		}
+	}
+
+	txCopy := tx.TrimmedCopy()
+
+	for inId, in := range txCopy.Inputs {
+		prevTX := prevTXs[hex.EncodeToString(in.ID)]
+		txCopy.Inputs[inId].Signature = nil
+		txCopy.Inputs[inId].PubKey = prevTX.Outputs[in.Out].PubKeyHash
+		txCopy.ID = txCopy.Hash()
+		txCopy.Inputs[inId].PubKey = nil 
+
+		r, s, err := ecdsa.Sign(rand.Reader, &PrivKey, tx.ID)
+		Handle(err)
+		signature := append(r.Bytes(), s.Bytes()...)
+
+		tx.Inputs[inId].Signature = signature
+	}
+}
+
+func (tx *Transaction) TrimmedCopy() Transaction {
+	var inputs []TxInput
+	var outputs []TxOutput
+
+	for _, in := range tx.Inputs {
+		inputs = append(inputs, TxInput{in.ID, in.Out, nil, nil})
+	}
+
+	for _, out := range tx.Outputs {
+		outputs = append(outputs, TxOutput{out.Value, out.PubKeyHash})
+	}
+
+	txCopy := Transaction{tx.ID, inputs, outputs}
+
+	return txCopy
+}
+
+func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
+	if tx.IsCoinbase() {
+		return true
+	}
+
+	for _, in := range tx.Inputs {
+		if
+	}
+}

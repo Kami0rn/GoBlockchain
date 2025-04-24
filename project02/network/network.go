@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"syscall"
 
+	// "github.com/golang-jwt/jwt/v4/request"
 	"github.com/golang-jwt/jwt/v4/request"
 	"github.com/vrecan/death/v3"
 
@@ -110,6 +111,45 @@ func SendBlock(addr string,b *blockchain.Block) {
 	request := append(CmdToBytes("block"),payload...)
 
 	SendData(addr, request)
+}
+
+func SendInv(address, kind string , items [][]byte) {
+	inventory := Inv{nodeAddress, kind, items}
+	payload := GobEncode(inventory)
+	request := append(CmdToBytes("inv"),payload...)
+	
+	SendData(address,request)
+}
+
+func SendTx(addr string, tnx *blockchain.Transaction) {
+	data := Tx{nodeAddress, tnx.Serialize()}
+	payload := GobEncode(data)
+	request := append(CmdToBytes("tx"),payload...)
+
+	SendData(addr, request)
+}
+
+func SendVersion (addr string, chain *blockchain.BlockChain) {
+	bestHeight := chain.GetBestHeight()
+	payload := GobEncode(Version{version, bestHeight, nodeAddress})
+
+	request := append(CmdToBytes("version"),payload...)
+
+	SendData(addr, request)
+}
+
+func SendGetBlock(address string) {
+	payload := GobEncode(GetBlocks{nodeAddress})
+	request := append(CmdToBytes("getblocks"),payload...)
+
+	SendData(address, request)
+}
+
+func SendGetData(address, kind string, id []byte) {
+	payload := GobEncode(GetData{nodeAddress, kind, id})
+	request := append(CmdToBytes("getdata"),payload...)
+
+	SendData(address, request)
 }
 
 func SendData(addr string, data []byte){

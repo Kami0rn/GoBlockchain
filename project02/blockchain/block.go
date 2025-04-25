@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"time"
 	// "crypto/sha256"
 	"encoding/gob"
 	"log"
@@ -10,20 +11,19 @@ import (
 // "bytes"
 // "crypto/sha256"
 
-
-
 type Block struct {
-	Hash     []byte
+	Timestamp    int64
+	Hash         []byte
 	Transactions []*Transaction
-	PrevHash []byte
-	Nonce int
+	PrevHash     []byte
+	Nonce        int
+	Height       int
 }
 
-func (b *Block) HashTransactions() [] byte {
+func (b *Block) HashTransactions() []byte {
 	var txHashes [][]byte
-	
 
-	for _,tx := range b.Transactions {
+	for _, tx := range b.Transactions {
 		txHashes = append(txHashes, tx.Serialize())
 	}
 	tree := NewMerkleTree(txHashes)
@@ -37,10 +37,10 @@ func (b *Block) HashTransactions() [] byte {
 // 	b.Hash = hash[:]
 // }
 
-func CreateBlock(txs []*Transaction, prevHash []byte) *Block {
-	block := &Block{[]byte{}, txs, prevHash, 0}
+func CreateBlock(txs []*Transaction, prevHash []byte, height int) *Block {
+	block := &Block{time.Now().Unix(),[]byte{}, txs, prevHash, 0,height}
 	pow := NewProof(block)
-	nonce , hash := pow.Run()
+	nonce, hash := pow.Run()
 
 	block.Hash = hash[:]
 	block.Nonce = nonce
@@ -48,10 +48,8 @@ func CreateBlock(txs []*Transaction, prevHash []byte) *Block {
 	return block
 }
 
-
-
 func Genesis(coinbase *Transaction) *Block {
-	return CreateBlock([]*Transaction{coinbase}, []byte{})
+	return CreateBlock([]*Transaction{coinbase}, []byte{}, 0)
 }
 
 func (b *Block) Serialize() []byte {
@@ -77,9 +75,8 @@ func Deserialize(data []byte) *Block {
 	return &block
 }
 
-func Handle (err error) {
+func Handle(err error) {
 	if err != nil {
 		log.Panic(err)
 	}
 }
-

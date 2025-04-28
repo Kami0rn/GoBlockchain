@@ -59,7 +59,7 @@ func DeserializeTransaction(data []byte) Transaction {
 
 
 
-func CoinBaseTx(to, data string) *Transaction {
+func CoinbaseTx(to, data string) *Transaction {
 	if data == "" {
 		randData := make([]byte, 24)
 		_,err := rand.Read(randData)
@@ -82,11 +82,7 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 	var inputs []TxInput
 	var outputs []TxOutput
 
-	wallets, err := wallet.CreateWallets()
-	Handle(err)
-	w := wallets.GetWallet(from)
 	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
-
 	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHash, amount)
 
 	if acc < amount {
@@ -103,6 +99,8 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 		}
 	}
 
+	from := fmt.Sprintf("%s", w.Address())
+
 	outputs = append(outputs, *NewTXOutput(amount, to))
 
 	if acc > amount {
@@ -115,7 +113,6 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 
 	return &tx
 }
-
 func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }

@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	// "github.com/golang-jwt/jwt/v4/request"
-	"github.com/golang-jwt/jwt/v4/request"
+	// "github.com/golang-jwt/jwt/v4/request"
 	"github.com/vrecan/death/v3"
 
 	"github.com/Kami0rn/golang-blockchain/blockchain"
@@ -357,7 +357,7 @@ func MineTx(chain *blockchain.BlockChain) {
 		return
 	}
 
-	cbTx := blockchain.CoinBaseTx(mineAddress, "")
+	cbTx := blockchain.CoinbaseTx(mineAddress, "")
 	txs = append(txs, cbTx)
 
 	newBlock := chain.MineBlock(txs)

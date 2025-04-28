@@ -251,7 +251,7 @@ func (cli *CommandLine) Run() {
 			getBalanceCmd.Usage()
 			runtime.Goexit()
 		}
-		cli.getBalance(*getBalanceAddress)
+		cli.getBalance(*getBalanceAddress, nodeID)
 	}
 
 	if createBlockchainCmd.Parsed() {
@@ -259,23 +259,23 @@ func (cli *CommandLine) Run() {
 			createBlockchainCmd.Usage()
 			runtime.Goexit()
 		}
-		cli.createBlockChain(*createBlockchainAddress)
+		cli.createBlockChain(*createBlockchainAddress, nodeID)
 	}
 
 	if printChainCmd.Parsed() {
-		cli.printChain()
+		cli.printChain(nodeID)
 	}
 
 	if createWalletCmd.Parsed(){
-		cli.createWallet()
+		cli.createWallet(nodeID)
 	}
 
 	if listAddressesCmd.Parsed(){
-		cli.listAddresses()
+		cli.listAddresses(nodeID)
 	}
 
 	if reindexUTXOCmd.Parsed(){
-		cli.reindexUTXO()
+		cli.reindexUTXO(nodeID)
 	}
 
 
@@ -285,7 +285,16 @@ func (cli *CommandLine) Run() {
 			runtime.Goexit()
 		}
 
-		cli.send(*sendFrom, *sendTo, *sendAmount)
+		cli.send(*sendFrom, *sendTo, *sendAmount, nodeID, *sendMine)
+	}
+
+	if startNodeCmd.Parsed(){
+		nodeID := os.Getenv("NODE_ID")
+		if nodeID == "" {
+			startNodeCmd.Usage()
+			runtime.Goexit()
+		}
+		cli.StartNode(nodeID, *startNodeMiner)
 	}
 
 	

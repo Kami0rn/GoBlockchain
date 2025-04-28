@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
+	// "path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -21,6 +21,7 @@ import (
 
 const (
 	dbPath      = "./tmp/blocks_%s"
+	genesisData = "First Transaction from Genesis"
 )
 
 type BlockChain struct {
@@ -57,7 +58,7 @@ func InitBlockChain(address, nodeId string) *BlockChain {
 	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
-		cbtx := CoinBaseTx(address, genesisData)
+		cbtx := CoinbaseTx(address, genesisData)
 		genesis := Genesis(cbtx)
 		fmt.Println("Genesis created!")
 		err = txn.Set(genesis.Hash, genesis.Serialize())

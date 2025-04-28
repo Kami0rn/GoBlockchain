@@ -2,17 +2,17 @@ package wallet
 
 import (
 	"bytes"
-	"crypto/ecdsa"
+	// "crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/big"
+	// "math/big"
 	"os"
 )
 
-const walletFile = "./tmp/wallet.data"
+const walletFile = "./tmp/wallet_%s.data"
 
 type Wallets struct {
 	Wallets map[string]*Wallet
@@ -23,11 +23,11 @@ type SerializableWallet struct {
 	PublicKey  []byte
 }
 
-func CreateWallets() (*Wallets, error) {
+func CreateWallets(nodeId string) (*Wallets, error) {
 	wallets := Wallets{}
 	wallets.Wallets = make(map[string]*Wallet)
 
-	err := wallets.LoadFile()
+	err := wallets.LoadFile(nodeId)
 
 	return &wallets, err
 }
@@ -55,56 +55,39 @@ func (ws Wallets) GetWallet(address string) Wallet {
 	return *ws.Wallets[address]
 }
 
-func (ws *Wallets) LoadFile() error {
+func (ws *Wallets) LoadFile(nodeId string) error {
+	walletFile := fmt.Sprintf(walletFile, nodeId)
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
 		return err
 	}
+
+	var wallets Wallets
 
 	fileContent, err := ioutil.ReadFile(walletFile)
 	if err != nil {
 		return err
 	}
 
-	var serializableWallets map[string]SerializableWallet
+	gob.Register(elliptic.P256())
 	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
-	err = decoder.Decode(&serializableWallets)
+	err = decoder.Decode(&wallets)
 	if err != nil {
 		return err
 	}
 
-	ws.Wallets = make(map[string]*Wallet)
-	for address, sWallet := range serializableWallets {
-		privateKey := ecdsa.PrivateKey{
-			D: new(big.Int).SetBytes(sWallet.PrivateKey),
-			PublicKey: ecdsa.PublicKey{
-				Curve: elliptic.P256(),
-				X:     new(big.Int).SetBytes(sWallet.PublicKey[:len(sWallet.PublicKey)/2]),
-				Y:     new(big.Int).SetBytes(sWallet.PublicKey[len(sWallet.PublicKey)/2:]),
-			},
-		}
-		ws.Wallets[address] = &Wallet{
-			PrivateKey: privateKey,
-			PublicKey:  sWallet.PublicKey,
-		}
-	}
+	ws.Wallets = wallets.Wallets
 
 	return nil
 }
 
-func (ws *Wallets) SaveFile() {
+func (ws *Wallets) SaveFile(nodeId string) {
 	var content bytes.Buffer
-	serializableWallets := make(map[string]SerializableWallet)
+	walletFile := fmt.Sprintf(walletFile, nodeId)
 
-	for address, wallet := range ws.Wallets {
-		privateKeyBytes := wallet.PrivateKey.D.Bytes()
-		serializableWallets[address] = SerializableWallet{
-			PrivateKey: privateKeyBytes,
-			PublicKey:  wallet.PublicKey,
-		}
-	}
+	gob.Register(elliptic.P256())
 
 	encoder := gob.NewEncoder(&content)
-	err := encoder.Encode(serializableWallets)
+	err := encoder.Encode(ws)
 	if err != nil {
 		log.Panic(err)
 	}

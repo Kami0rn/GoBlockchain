@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	// "path"
 	"path/filepath"
 	"runtime"
@@ -54,7 +55,7 @@ func InitBlockChain(address, nodeId string) *BlockChain {
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
 
-	db, err := openDB(path,opts)
+	db, err := openDB(path, opts)
 	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
@@ -127,13 +128,13 @@ func (chain *BlockChain) AddBlock(block *Block) {
 
 		var lastHash []byte
 		err = item.Value(func(val []byte) error {
-			
+
 			lastHash = append([]byte{}, val...)
 			return nil
 		})
 		Handle(err)
 
-		item,err = txn.Get(lastHash)
+		item, err = txn.Get(lastHash)
 		Handle(err)
 		var lastBlockData []byte
 		err = item.Value(func(val []byte) error {
@@ -145,7 +146,7 @@ func (chain *BlockChain) AddBlock(block *Block) {
 		lastBlock := Deserialize(lastBlockData)
 
 		if block.Height > lastBlock.Height {
-			err = txn.Set([]byte("lh"),block.Hash)
+			err = txn.Set([]byte("lh"), block.Hash)
 			Handle(err)
 			chain.LastHash = block.Hash
 		}
@@ -201,7 +202,7 @@ func (chain *BlockChain) GetBestHeight() int {
 	var lastBlock Block
 
 	err := chain.Database.View(func(txn *badger.Txn) error {
-		item , err := txn.Get([]byte("lh"))
+		item, err := txn.Get([]byte("lh"))
 		Handle(err)
 		var lastHash []byte
 		err = item.Value(func(val []byte) error {
@@ -233,7 +234,7 @@ func (chain *BlockChain) MineBlock(transaction []*Transaction) *Block {
 	var lastHash []byte
 	var lastHeight int
 
-    for _ , tx := range transaction {
+	for _, tx := range transaction {
 		if chain.VerifyTransaction(tx) != true {
 			log.Panic("Invalid Transaction")
 		}
@@ -281,9 +282,7 @@ func (chain *BlockChain) MineBlock(transaction []*Transaction) *Block {
 
 }
 
-
-
-func (chain *BlockChain) FindUTXO() map[string] TxOutputs{
+func (chain *BlockChain) FindUTXO() map[string]TxOutputs {
 	UTXO := make(map[string]TxOutputs)
 	spentTXOs := make(map[string][]int)
 
@@ -296,7 +295,7 @@ func (chain *BlockChain) FindUTXO() map[string] TxOutputs{
 			txID := hex.EncodeToString(tx.ID)
 
 		Outputs:
-			
+
 			for outIdx, out := range tx.Outputs {
 				if spentTXOs[txID] != nil {
 					for _, spentOut := range spentTXOs[txID] {
@@ -326,10 +325,7 @@ func (chain *BlockChain) FindUTXO() map[string] TxOutputs{
 
 	return UTXO
 
-	
 }
-
-
 
 func (bc *BlockChain) FindTransaction(ID []byte) (Transaction, error) {
 	iter := bc.Iterator()
@@ -352,26 +348,30 @@ func (bc *BlockChain) FindTransaction(ID []byte) (Transaction, error) {
 	return Transaction{}, errors.New("Transaction does not exist")
 }
 
-func (bc *BlockChain) SignTransaction(tx *Transaction, privKey ecdsa.PrivateKey) {
+func (bc *BlockChain) SignTransaction(tx *Transaction, privateKey *ecdsa.PrivateKey) {
+	if tx.IsCoinbase() {
+		return
+	}
+
 	prevTXs := make(map[string]Transaction)
 
 	for _, in := range tx.Inputs {
-		prevTX, err := bc.FindTransaction(in.ID)
-		Handle(err)
+		prevTX, err := bc.FindTransaction(in.ID) // Use FindTransaction instead of GetTransaction
+		if err != nil {
+			log.Panic(err)
+		}
 		prevTXs[hex.EncodeToString(prevTX.ID)] = prevTX
 	}
 
-	tx.Sign(privKey, prevTXs)
-
+	tx.Sign(privateKey, prevTXs) // Pass the private key directly
 }
 
 func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool {
 
-
 	if tx.IsCoinbase() {
 		return true
 	}
-	
+
 	prevTXs := make(map[string]Transaction)
 
 	for _, in := range tx.Inputs {
@@ -385,8 +385,8 @@ func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool {
 
 func retry(dir string, originalOpts badger.Options) (*badger.DB, error) {
 	lockPath := filepath.Join(dir, "LOCK")
-	if err := os.Remove(lockPath) ; err != nil {
-		return nil , fmt.Errorf(`removing "LOCK": %s`, err)
+	if err := os.Remove(lockPath); err != nil {
+		return nil, fmt.Errorf(`removing "LOCK": %s`, err)
 	}
 
 	retryOpts := originalOpts

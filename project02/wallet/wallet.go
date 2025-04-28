@@ -6,8 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-
-	// "fmt"
+	"encoding/gob"
 	"log"
 
 	"golang.org/x/crypto/ripemd160"
@@ -15,14 +14,20 @@ import (
 
 const (
 	checksumLength = 4
-	version = byte(0x00)
+	version        = byte(0x00)
 )
 
 type Wallet struct {
-	PrivateKey ecdsa.PrivateKey
-	PublicKey []byte
+	PrivateKey []byte // Store only the private key's D value
+	PublicKey  []byte
 }
 
+// Automatically register the elliptic curve when the package is loaded
+func init() {
+	gob.Register(elliptic.P256())
+}
+
+// Address generates the wallet's address
 func (w Wallet) Address() []byte {
 	pubHash := PublicKeyHash(w.PublicKey)
 
@@ -32,14 +37,11 @@ func (w Wallet) Address() []byte {
 	fullHash := append(versionedHash, checksum...)
 	address := Base58Encode(fullHash)
 
-	// fmt.Printf("Pub key: %x\n", w.PublicKey)
-	// fmt.Printf("Pub hash: %x\n", pubHash)
-	// fmt.Printf("Address: %x\n", address)
-
 	return address
 }
 
-func NewKeyPair() (ecdsa.PrivateKey, []byte){
+// NewKeyPair generates a new key pair
+func NewKeyPair() ([]byte, []byte) {
 	curve := elliptic.P256()
 
 	private, err := ecdsa.GenerateKey(curve, rand.Reader)
@@ -47,22 +49,25 @@ func NewKeyPair() (ecdsa.PrivateKey, []byte){
 		log.Panic(err)
 	}
 
-	pub := append(private.PublicKey.X.Bytes(), private.PublicKey.Y.Bytes()...)
-	return *private, pub
+	privateKey := private.D.Bytes()
+	publicKey := append(private.PublicKey.X.Bytes(), private.PublicKey.Y.Bytes()...)
+	return privateKey, publicKey
 }
 
+// MakeWallet creates a new wallet
 func MakeWallet() *Wallet {
 	private, public := NewKeyPair()
-	wallet := Wallet{private,public}
+	wallet := Wallet{private, public}
 
 	return &wallet
 }
 
+// PublicKeyHash hashes a public key
 func PublicKeyHash(pubKey []byte) []byte {
 	pubHash := sha256.Sum256(pubKey)
 
 	hasher := ripemd160.New()
-	_,err := hasher.Write(pubHash[:])
+	_, err := hasher.Write(pubHash[:])
 	if err != nil {
 		log.Panic(err)
 	}
@@ -72,13 +77,15 @@ func PublicKeyHash(pubKey []byte) []byte {
 	return publicRipMD
 }
 
-func Checksum (payload []byte) []byte {
+// Checksum generates a checksum for a payload
+func Checksum(payload []byte) []byte {
 	firstHash := sha256.Sum256(payload)
 	secondHash := sha256.Sum256(firstHash[:])
 
 	return secondHash[:checksumLength]
 }
 
+// ValidateAddress validates a wallet address
 func ValidateAddress(address string) bool {
 	pubKeyHash := Base58Decode([]byte(address))
 	actualChecksum := pubKeyHash[len(pubKeyHash)-checksumLength:]
@@ -88,4 +95,3 @@ func ValidateAddress(address string) bool {
 
 	return bytes.Compare(actualChecksum, targetChecksum) == 0
 }
-

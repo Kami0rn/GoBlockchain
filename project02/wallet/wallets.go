@@ -2,13 +2,10 @@ package wallet
 
 import (
 	"bytes"
-	// "crypto/ecdsa"
-	"crypto/elliptic"
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"log"
-	// "math/big"
 	"os"
 )
 
@@ -18,11 +15,7 @@ type Wallets struct {
 	Wallets map[string]*Wallet
 }
 
-type SerializableWallet struct {
-	PrivateKey []byte
-	PublicKey  []byte
-}
-
+// CreateWallets initializes a Wallets instance
 func CreateWallets(nodeId string) (*Wallets, error) {
 	wallets := Wallets{}
 	wallets.Wallets = make(map[string]*Wallet)
@@ -32,6 +25,7 @@ func CreateWallets(nodeId string) (*Wallets, error) {
 	return &wallets, err
 }
 
+// AddWallet adds a new wallet
 func (ws *Wallets) AddWallet() string {
 	wallet := MakeWallet()
 	address := fmt.Sprintf("%s", wallet.Address())
@@ -41,6 +35,7 @@ func (ws *Wallets) AddWallet() string {
 	return address
 }
 
+// GetAllAddresses returns all wallet addresses
 func (ws *Wallets) GetAllAddresses() []string {
 	var addresses []string
 
@@ -51,10 +46,12 @@ func (ws *Wallets) GetAllAddresses() []string {
 	return addresses
 }
 
+// GetWallet retrieves a wallet by address
 func (ws Wallets) GetWallet(address string) Wallet {
 	return *ws.Wallets[address]
 }
 
+// LoadFile loads wallets from a file
 func (ws *Wallets) LoadFile(nodeId string) error {
 	walletFile := fmt.Sprintf(walletFile, nodeId)
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
@@ -68,7 +65,6 @@ func (ws *Wallets) LoadFile(nodeId string) error {
 		return err
 	}
 
-	gob.Register(elliptic.P256())
 	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
 	err = decoder.Decode(&wallets)
 	if err != nil {
@@ -80,11 +76,10 @@ func (ws *Wallets) LoadFile(nodeId string) error {
 	return nil
 }
 
+// SaveFile saves wallets to a file
 func (ws *Wallets) SaveFile(nodeId string) {
 	var content bytes.Buffer
 	walletFile := fmt.Sprintf(walletFile, nodeId)
-
-	gob.Register(elliptic.P256())
 
 	encoder := gob.NewEncoder(&content)
 	err := encoder.Encode(ws)
